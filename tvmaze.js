@@ -1,6 +1,7 @@
 "use strict";
 
 const $showsList = $("#showsList");
+const $episodesList = $("#episodesList");
 const $episodesArea = $("#episodesArea");
 const $searchForm = $("#searchForm");
 
@@ -12,27 +13,20 @@ const $searchForm = $("#searchForm");
  *    (if no image URL given by API, put in a default image URL)
  */
 
-async function getShowsByTerm( /* term */) {
-  // ADD: Remove placeholder & make request to TVMaze search shows API.
-
-  return [
-    {
-      id: 1767,
-      name: "The Bletchley Circle",
-      summary:
-        `<p><b>The Bletchley Circle</b> follows the journey of four ordinary
-           women with extraordinary skills that helped to end World War II.</p>
-         <p>Set in 1952, Susan, Millie, Lucy and Jean have returned to their
-           normal lives, modestly setting aside the part they played in
-           producing crucial intelligence, which helped the Allies to victory
-           and shortened the war. When Susan discovers a hidden code behind an
-           unsolved murder she is met by skepticism from the police. She
-           quickly realises she can only begin to crack the murders and bring
-           the culprit to justice with her former friends.</p>`,
-      image:
-        "http://static.tvmaze.com/uploads/images/medium_portrait/147/369403.jpg"
+async function getShowsByTerm(term) {
+  // input search term. searches api and itterates results into a objects show{id, name, summary, image}
+  const res = await axios.get("http://api.tvmaze.com/search/shows",{ params: {q: term}});
+  let results = res.data.map(result => {
+    const show = result.show;
+    return{
+      id: show.id,
+      name: show.name,
+      summary: show.summary,
+      image: show.image ? show.image.medium : "https://tinyurl.com/tv-missing",
     }
-  ];
+    
+  })
+  return(results);
 }
 
 
@@ -40,13 +34,12 @@ async function getShowsByTerm( /* term */) {
 
 function populateShows(shows) {
   $showsList.empty();
-
   for (let show of shows) {
     const $show = $(
       `<div data-show-id="${show.id}" class="Show col-md-12 col-lg-6 mb-4">
          <div class="media">
            <img
-              src="http://static.tvmaze.com/uploads/images/medium_portrait/160/401704.jpg"
+              src="${show.image}"
               alt="Bletchly Circle San Francisco"
               class="w-25 me-3">
            <div class="media-body">
@@ -86,9 +79,41 @@ $searchForm.on("submit", async function (evt) {
 /** Given a show ID, get from API and return (promise) array of episodes:
  *      { id, name, season, number }
  */
+async function getEpisodesAndDisplay(e){
+  // Handles retreiving episodes base on which button was clicked and appends episode list
+  const showId = $(e.target).closest(".Show").data("show-id");
+  const episodeList = await getEpisodesOfShow(showId);
+  populateEpisodes(episodeList);
 
-// async function getEpisodesOfShow(id) { }
+}
 
-/** Write a clear docstring for this function... */
 
-// function populateEpisodes(episodes) { }
+function populateEpisodes(episodes){
+  // input episodes object episodes{}, appends episodes list 
+  $episodesList.empty();
+  for (let episode of episodes) {
+    const $episode = $(
+      `<li>Season ${episode.season}, Ep. ${episode.number}: ${episode.name}</li>`);
+  $episodesList.append($episode)
+  $episodesArea.show();
+  }
+}
+
+async function getEpisodesOfShow(id) {
+  // input show ID, send get to api, return episode {id, name, season, number} 
+  const res = await axios.get("http://api.tvmaze.com/shows/" + id + "/episodes")
+  console.log(res);
+  let episodes = res.data.map(episode => {
+   return{
+    id: episode.id,
+    name: episode.name,
+    season: episode.season,
+    number: episode.number,
+   }
+  })
+  return episodes;
+}
+
+// event listener for episodes button
+$showsList.on("click", ".Show-getEpisodes", getEpisodesAndDisplay);
+
